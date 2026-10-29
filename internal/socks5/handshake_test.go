@@ -70,7 +70,7 @@ func unifiedTestCase(
 		t.Fatal(err)
 	}
 
-	handler := NewHandler()
+	handler := NewHandler(nil)
 	
 	result := make(chan error, 1)
 

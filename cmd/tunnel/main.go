@@ -35,7 +35,7 @@ func main()  {
 		os.Exit(1)
 	}
 
-	handler := socks5.NewHandler()
+	handler := socks5.NewHandler(logger)
 	srv := server.New(
 		net.JoinHostPort(cfg.Server.Host, fmt.Sprint(cfg.Server.Port)), 
 		handler, 

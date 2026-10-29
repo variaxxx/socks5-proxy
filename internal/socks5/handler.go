@@ -3,14 +3,20 @@ package socks5
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net"
 )
 
-type Handler struct {}
+type Handler struct {
+	logger *slog.Logger
+}
 
-func NewHandler() *Handler {
-	return &Handler{}
+func NewHandler(
+	logger *slog.Logger,
+) *Handler {
+	return &Handler{
+		logger: logger,
+	}
 }
 
 func (h *Handler) Handle(ctx context.Context, conn net.Conn) error {
@@ -30,7 +36,7 @@ func (h *Handler) Handle(ctx context.Context, conn net.Conn) error {
 
 	remoteAddr := conn.RemoteAddr().String()
 
-	log.Printf("[%s] Client connected", remoteAddr)
+	h.logger.Info("client connected", "remote_addr", remoteAddr)
 	
 	if err := h.handshake(conn); err != nil {
 		return fmt.Errorf("handshake: %w", err)
@@ -40,6 +46,18 @@ func (h *Handler) Handle(ctx context.Context, conn net.Conn) error {
 	if err != nil {
 		return fmt.Errorf("read SOCKS5 request: %w", err)
 	}
+
+	if req.Command != CmdConnect {
+    // command not supported at the moment
+    return fmt.Errorf("unsupported command: %x", req.Command)
+}
+
+	h.logger.Info(
+    "SOCKS5 request received",
+    "command", req.Command,
+    "address", req.Address,
+    "port", req.Port,
+	)
 
 	_ = req
 

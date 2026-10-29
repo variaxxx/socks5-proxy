@@ -32,58 +32,50 @@ type Request struct {
 // RFC1928 request format:
 // 05  01  00  03   ...
 // VER CMD RSV ATYP DST (address + port)
-func readRequest(conn net.Conn) (*Request, error) {
+func readRequest(r io.Reader) (*Request, error) {
 	header := make([]byte, 4)
 
-	if _, err := io.ReadFull(conn, header); err != nil {
+	if _, err := io.ReadFull(r, header); err != nil {
 		return nil, fmt.Errorf("read req header: %w", err) 
 	}
 
-	VER := header[0]
-	CMD := header[1]
-	RSV := header[2]
-	ATYP := header[3]
+	version := header[0]
+	command := header[1]
+	reserve := header[2]
+	addrType := header[3]
 
-	if VER != Version {
-		return nil, fmt.Errorf("incompatible version: %d", VER)
+	if version != Version {
+		return nil, fmt.Errorf("incompatible version: %d", version)
 	}
-	if RSV != 0x00 {
-		return nil, fmt.Errorf("invalid RSV: %d", RSV)
-	}
-
-	// only tcp connect command is supported at the moment
-	if Command(CMD) != CmdConnect {
-		return nil, fmt.Errorf("invalid command: %x", CMD)
+	if reserve != 0x00 {
+		return nil, fmt.Errorf("invalid RSV: %d", reserve)
 	}
 
 	var address string
-	var port uint16
 
-	switch AddressType(ATYP) {
+	switch AddressType(addrType) {
 	case AddrIPv4:
 		buf := make([]byte, net.IPv4len)
 
-		if _, err := io.ReadFull(conn, buf); err != nil {
+		if _, err := io.ReadFull(r, buf); err != nil {
 			return nil, fmt.Errorf("read ipv4 addr: %w", err) 
 		}
 
 		address = net.IP(buf).String()
-		port = binary.BigEndian.Uint16(buf[len(buf) - 2:])
 	
 	case AddrIPv6:
 		buf := make([]byte, net.IPv6len)
 
-		if _, err := io.ReadFull(conn, buf); err != nil {
+		if _, err := io.ReadFull(r, buf); err != nil {
 			return nil, fmt.Errorf("read ipv6 addr: %w", err) 
 		}
 
 		address = net.IP(buf).String()
-		port = binary.BigEndian.Uint16(buf[len(buf) - 2:])
 
 	case AddrDomain:
 		var length [1]byte
 
-		if _, err := io.ReadFull(conn, length[:]); err != nil {
+		if _, err := io.ReadFull(r, length[:]); err != nil {
 			return nil, fmt.Errorf("read domain length: %w", err) 
 		}
 
@@ -93,19 +85,26 @@ func readRequest(conn net.Conn) (*Request, error) {
 
 		buf := make([]byte, int(length[0]))
 
-		if _, err := io.ReadFull(conn, buf); err != nil {
+		if _, err := io.ReadFull(r, buf); err != nil {
 			return nil, fmt.Errorf("read domain addr: %w", err) 
 		}
 
 		address = string(buf)
-		port = binary.BigEndian.Uint16(buf[len(buf) - 2:])
 	
 	default:
-		return nil, fmt.Errorf("unsupported address type: %d", ATYP)
+		return nil, fmt.Errorf("unsupported address type: %d", addrType)
 	}
 
+	var portBytes [2]byte
+
+	if _, err := io.ReadFull(r, portBytes[:]); err != nil {
+			return nil, fmt.Errorf("read destination port: %w", err)
+	}
+
+	port := binary.BigEndian.Uint16(portBytes[:])
+
 	return &Request{
-		Command: CmdConnect,
+		Command: Command(command),
 		Address: address,
 		Port: port,
 	}, nil
