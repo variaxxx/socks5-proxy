@@ -2,6 +2,7 @@ package socks5
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 )
@@ -31,5 +32,16 @@ func (h *Handler) Handle(ctx context.Context, conn net.Conn) error {
 
 	log.Printf("[%s] Client connected", remoteAddr)
 	
-	return h.handshake(conn)
+	if err := h.handshake(conn); err != nil {
+		return fmt.Errorf("handshake: %w", err)
+	}
+
+	req, err := readRequest(conn)
+	if err != nil {
+		return fmt.Errorf("read SOCKS5 request: %w", err)
+	}
+
+	_ = req
+
+	return nil
 }
