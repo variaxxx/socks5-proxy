@@ -2,8 +2,14 @@ package main
 
 import (
 	"context"
-	"log"
+	"flag"
+	"fmt"
+	"log/slog"
+	"net"
+	"os"
 	"os/signal"
+	"socks5-proxy/internal/config"
+	"socks5-proxy/internal/server"
 	"socks5-proxy/internal/socks5"
 	"syscall"
 )
@@ -15,7 +21,29 @@ func main()  {
 	)
 	defer cancel()
 
-	if err := socks5.ListenAndServe(ctx, "127.0.0.1:6767"); err != nil {
-		log.Fatal(err)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	configPath := flag.String(
+		"config",
+		"configs/config.yaml",
+		"path to configuration file",
+	)
+
+	cfg, err := config.Load(*configPath)
+	if err != nil {
+		logger.Error("config failed", "error", err)
+		os.Exit(1)
+	}
+
+	handler := socks5.NewHandler()
+	srv := server.New(
+		net.JoinHostPort(cfg.Server.Host, fmt.Sprint(cfg.Server.Port)), 
+		handler, 
+		logger,
+	)
+	
+	if err := srv.Serve(ctx); err != nil {
+		logger.Error("serve failed", "error", err)
+		os.Exit(1)
 	}
 }
