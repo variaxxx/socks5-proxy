@@ -29,6 +29,7 @@ func main()  {
 		"configs/config.yaml",
 		"path to configuration file",
 	)
+	flag.Parse()
 
 	cfg, err := config.Load(*configPath)
 	if err != nil {

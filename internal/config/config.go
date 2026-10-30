@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 
@@ -41,7 +42,10 @@ func Load(path string) (*Config, error) {
 		},
 	}
 
-	if err := yaml.Unmarshal(data, cfg); err != nil {
+	decoder := yaml.NewDecoder(bytes.NewReader(data))
+	decoder.KnownFields(true)
+
+	if err := decoder.Decode(cfg); err != nil {
 		return nil, fmt.Errorf("parse config: %w", err)
 	}
 
@@ -53,8 +57,13 @@ func Load(path string) (*Config, error) {
 		return nil, fmt.Errorf("host cannot be empty")
 	}
 
-	if cfg.Auth.RequireAuth && (cfg.Auth.Username == "" || cfg.Auth.Password == "") {
-		return nil, fmt.Errorf("invalid username or password")
+	if cfg.Auth.RequireAuth {
+		if cfg.Auth.Username == "" || cfg.Auth.Password == "" {
+			return nil, fmt.Errorf("invalid username or password")
+		}
+		if len([]byte(cfg.Auth.Username)) > 255 || len([]byte(cfg.Auth.Password)) > 255 {
+			return nil, fmt.Errorf("too long username or password")
+		}
 	}
 
 	return cfg, nil
