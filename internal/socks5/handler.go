@@ -7,15 +7,26 @@ import (
 	"net"
 )
 
+type Dialer interface {
+	DialContext(
+		ctx context.Context,
+		network string,
+		address string,
+	) (net.Conn, error)
+}
+
 type Handler struct {
 	logger *slog.Logger
+	dialer Dialer
 }
 
 func NewHandler(
 	logger *slog.Logger,
+	dialer Dialer,
 ) *Handler {
 	return &Handler{
 		logger: logger,
+		dialer: dialer,
 	}
 }
 
@@ -48,8 +59,12 @@ func (h *Handler) Handle(ctx context.Context, conn net.Conn) error {
 	}
 
 	if req.Command != CmdConnect {
-    // command not supported at the moment
-    return fmt.Errorf("unsupported command: %x", req.Command)
+    // other commands not supported at the moment
+		if err := writeReply(conn, ReplyCmdNotSupported, nil); err != nil {
+			return fmt.Errorf("write unsupported command reply: %w", err)
+		}
+
+    return fmt.Errorf("unsupported SOCKS5 command: %x", req.Command)
 }
 
 	h.logger.Info(
@@ -59,7 +74,26 @@ func (h *Handler) Handle(ctx context.Context, conn net.Conn) error {
     "port", req.Port,
 	)
 
-	_ = req
+	upstream, err := h.connect(ctx, req)
+	if err != nil {
+		if replyErr := writeReply(conn, ReplyGeneralFailure, nil); replyErr != nil {
+			return fmt.Errorf("connect: %v; write failure reply: %w", err, replyErr)
+		}
+		return err
+	}
+	defer upstream.Close()
+
+	boundAddr, ok := upstream.LocalAddr().(*net.TCPAddr)
+	if !ok {
+		if err := writeReply(conn, ReplyGeneralFailure, nil); err != nil {
+			return fmt.Errorf("write failure reply: %w", err)
+		}
+		return fmt.Errorf("unexpected local address type: %T", upstream.LocalAddr())
+	}
+
+	if err := writeReply(conn, ReplySuccess, boundAddr); err != nil {
+		return fmt.Errorf("write success reply: %w", err)
+	}
 
 	return nil
 }

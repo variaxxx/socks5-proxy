@@ -12,6 +12,7 @@ import (
 	"socks5-proxy/internal/server"
 	"socks5-proxy/internal/socks5"
 	"syscall"
+	"time"
 )
 
 func main()  {
@@ -35,7 +36,12 @@ func main()  {
 		os.Exit(1)
 	}
 
-	handler := socks5.NewHandler(logger)
+	dialer := &net.Dialer{
+		Timeout: 10 * time.Second,
+		KeepAlive: 30 * time.Second,
+	}
+
+	handler := socks5.NewHandler(logger, dialer)
 	srv := server.New(
 		net.JoinHostPort(cfg.Server.Host, fmt.Sprint(cfg.Server.Port)), 
 		handler, 

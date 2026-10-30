@@ -70,7 +70,11 @@ func unifiedTestCase(
 		t.Fatal(err)
 	}
 
-	handler := NewHandler(nil)
+	dialer := &net.Dialer{
+		Timeout: 10 * time.Second,
+		KeepAlive: 30 * time.Second,
+	}
+	handler := NewHandler(nil, dialer)
 	
 	result := make(chan error, 1)
 
