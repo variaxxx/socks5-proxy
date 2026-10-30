@@ -3,6 +3,7 @@ package socks5
 import (
 	"bytes"
 	"io"
+	"log/slog"
 	"net"
 	"testing"
 	"time"
@@ -70,11 +71,12 @@ func unifiedTestCase(
 		t.Fatal(err)
 	}
 
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	dialer := &net.Dialer{
 		Timeout: 10 * time.Second,
 		KeepAlive: 30 * time.Second,
 	}
-	handler := NewHandler(nil, dialer)
+	handler := NewHandler(logger, dialer)
 	
 	result := make(chan error, 1)
 
