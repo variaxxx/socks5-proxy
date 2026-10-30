@@ -1,0 +1,9 @@
+server:
+  host: "127.0.0.1"
+  port: 6767
+  max_connections: 100
+
+auth:
+  require_auth: true
+  username: "admin"
+  password: "secret"
