@@ -79,7 +79,9 @@ func (h *Handler) Handle(ctx context.Context, conn net.Conn) error {
 
 	upstream, err := h.connect(ctx, req)
 	if err != nil {
-		if replyErr := writeReply(conn, ReplyGeneralFailure, nil); replyErr != nil {
+		code := mapDialError(err)
+
+		if replyErr := writeReply(conn, code, nil); replyErr != nil {
 			return fmt.Errorf("connect: %v; write failure reply: %w", err, replyErr)
 		}
 		return err
