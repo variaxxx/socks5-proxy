@@ -9,11 +9,18 @@ import (
 
 type Config struct {
 	Server ServerConfig `yaml:"server"`
+	Auth AuthConfig `yaml:"auth"`
 }
 
 type ServerConfig struct {
 	Host string `yaml:"host"`
 	Port int `yaml:"port"`
+}
+
+type AuthConfig struct {
+	RequireAuth bool `yaml:"require_auth"`
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
 }
 
 func Load(path string) (*Config, error) {
@@ -27,6 +34,11 @@ func Load(path string) (*Config, error) {
 			Host: "127.0.0.1",
 			Port: 1080,
 		},
+		Auth: AuthConfig{
+			RequireAuth: false,
+			Username: "",
+			Password: "",
+		},
 	}
 
 	if err := yaml.Unmarshal(data, cfg); err != nil {
@@ -39,6 +51,10 @@ func Load(path string) (*Config, error) {
 
 	if cfg.Server.Host == "" {
 		return nil, fmt.Errorf("host cannot be empty")
+	}
+
+	if cfg.Auth.RequireAuth && (cfg.Auth.Username == "" || cfg.Auth.Password == "") {
+		return nil, fmt.Errorf("invalid username or password")
 	}
 
 	return cfg, nil

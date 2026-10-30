@@ -41,7 +41,12 @@ func main()  {
 		KeepAlive: 30 * time.Second,
 	}
 
-	handler := socks5.NewHandler(logger, dialer)
+	var auth socks5.Authenticator = nil
+	if cfg.Auth.RequireAuth {
+		auth = socks5.NewStaticAuthenticator(cfg.Auth.Username, cfg.Auth.Password)
+	}
+
+	handler := socks5.NewHandler(logger, dialer, auth)
 	srv := server.New(
 		net.JoinHostPort(cfg.Server.Host, fmt.Sprint(cfg.Server.Port)), 
 		handler, 

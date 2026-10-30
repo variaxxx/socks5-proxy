@@ -39,7 +39,7 @@ func TestHandlerConnect(t *testing.T) {
 	dialer := &net.Dialer{
 		Timeout: time.Second,
 	}
-	handler := NewHandler(logger, dialer)
+	handler := NewHandler(logger, dialer, nil)
 
 	handlerDone := make(chan error, 1)
 

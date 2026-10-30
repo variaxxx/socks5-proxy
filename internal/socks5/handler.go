@@ -18,15 +18,18 @@ type Dialer interface {
 type Handler struct {
 	logger *slog.Logger
 	dialer Dialer
+	auth Authenticator
 }
 
 func NewHandler(
 	logger *slog.Logger,
 	dialer Dialer,
+	auth Authenticator,
 ) *Handler {
 	return &Handler{
 		logger: logger,
 		dialer: dialer,
+		auth: auth,
 	}
 }
 
@@ -42,8 +45,15 @@ func (h *Handler) Handle(ctx context.Context, conn net.Conn) error {
 
 	h.logger.Info("client connected", "remote_addr", remoteAddr)
 	
-	if err := h.handshake(conn); err != nil {
+	method, err := h.handshake(conn);
+	if err != nil {
 		return fmt.Errorf("handshake: %w", err)
+	}
+
+	if method == AuthUserPass {
+		if err := h.authenticate(conn); err != nil {
+			return fmt.Errorf("auth: %w", err)
+		}
 	}
 
 	req, err := readRequest(conn)

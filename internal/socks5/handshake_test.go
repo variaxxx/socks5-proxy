@@ -21,7 +21,7 @@ func TestHandshakeNoAuth(t *testing.T) {
 func TestHandshakeUnsupportedMethod(t *testing.T) {
 	unifiedTestCase(
 		t,
-		[]byte{0x05, 0x02, 0x01, 0x02},
+		[]byte{0x05, 0x01, 0x01},
 		[]byte{0x05, 0xFF},
 		true,
 	)
@@ -76,12 +76,22 @@ func unifiedTestCase(
 		Timeout: 10 * time.Second,
 		KeepAlive: 30 * time.Second,
 	}
-	handler := NewHandler(logger, dialer)
+	handler := NewHandler(logger, dialer, nil)
 	
-	result := make(chan error, 1)
+	result := make(chan struct{
+		authMethod AuthMethod
+		err error
+	}, 1)
 
 	go func() {
-		result <- handler.handshake(serverConn)
+		method, err := handler.handshake(serverConn)
+		result <- struct{
+			authMethod AuthMethod
+			err error
+		} {
+			authMethod: method,
+			err: err,
+		}
 	}()
 
 	if _, err := clientConn.Write(request); err != nil {
@@ -100,8 +110,8 @@ func unifiedTestCase(
     }
 	}
 
-	err := <-result
-	if (err != nil) != wantError {
-		t.Errorf("handshake error = %v, wantError = %t", err, wantError)
+	res := <-result
+	if (res.err != nil) != wantError {
+		t.Errorf("handshake error = %v, wantError = %t", res.err, wantError)
 	}
 }

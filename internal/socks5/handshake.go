@@ -8,42 +8,62 @@ import (
 )
 
 
-func (h *Handler) handshake(conn net.Conn) error {
+func (h *Handler) handshake(conn net.Conn) (AuthMethod, error) {
 	if err := conn.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
-		return fmt.Errorf("set handshake deadline: %w", err)
+		return AuthNoAccepted, fmt.Errorf("set handshake deadline: %w", err)
 	}
 	defer conn.SetReadDeadline(time.Time{})
 
 	header := make([]byte, 2)
 	_, err := io.ReadFull(conn, header)
 	if err != nil {
-		return fmt.Errorf("read handshake header: %w", err)
+		return AuthNoAccepted, fmt.Errorf("read handshake header: %w", err)
 	}
 
 	if header[0] != Version {
-		return fmt.Errorf("unsupported proto version: %d", header[0])
+		return AuthNoAccepted, fmt.Errorf("unsupported proto version: %d", header[0])
 	}
 
 	if header[1] == 0 {
-		return fmt.Errorf("invalid NMETHODS: %d", header[1])
+		return AuthNoAccepted, fmt.Errorf("invalid NMETHODS: %d", header[1])
 	}
 
 	methods := make([]byte, header[1])
 	_, err = io.ReadFull(conn, methods)
 	if err != nil {
-		return fmt.Errorf("read client methods: %w", err)
+		return AuthNoAccepted, fmt.Errorf("read client methods: %w", err)
 	}
 
-	for _, b := range methods {
-		if AuthMethod(b) == AuthNoRequired {
-			return writeMethodSelection(conn, AuthNoRequired)
+	var selectedMethod AuthMethod = AuthNoAccepted
+
+	if h.auth != nil {
+		if hasMethod(methods, AuthUserPass) {
+			selectedMethod = AuthUserPass
+		}
+	} else {
+		if hasMethod(methods, AuthNoRequired) {
+			selectedMethod = AuthNoRequired
 		}
 	}
-	if err := writeMethodSelection(conn, AuthNoAccepted); err != nil {
-		return err
+	
+	if err := writeMethodSelection(conn, selectedMethod); err != nil {
+		return AuthNoAccepted, err
 	}
 
-	return fmt.Errorf("no supported methods")
+	if selectedMethod == AuthNoAccepted {
+		return  selectedMethod, fmt.Errorf("unsupported auth method")
+	}
+	return selectedMethod, nil
+}
+
+
+func hasMethod(methods []byte, target AuthMethod) bool {
+	for _, b := range methods {
+		if AuthMethod(b) == target {
+			return true
+		}
+	}
+	return  false
 }
 
 
