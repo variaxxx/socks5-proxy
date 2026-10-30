@@ -98,7 +98,7 @@ func readRequest(conn net.Conn) (*Request, error) {
 		address = string(buf)
 	
 	default:
-		return nil, fmt.Errorf("unsupported address type: %d", addrType)
+		return nil, fmt.Errorf("%w: %d", ErrUnsupportedAddressType, addrType)
 	}
 
 	var portBytes [2]byte

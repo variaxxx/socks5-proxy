@@ -24,3 +24,5 @@ func mapDialError(err error) ReplyCode {
         return ReplyGeneralFailure
 	}
 }
+
+var ErrUnsupportedAddressType = errors.New("unsupported address type")

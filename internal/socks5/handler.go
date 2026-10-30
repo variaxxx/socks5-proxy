@@ -2,6 +2,7 @@ package socks5
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -58,6 +59,12 @@ func (h *Handler) Handle(ctx context.Context, conn net.Conn) error {
 
 	req, err := readRequest(conn)
 	if err != nil {
+		if errors.Is(err, ErrUnsupportedAddressType) {
+			if replyErr := writeReply(conn, ReplyAddrNotSupported, nil); replyErr != nil {
+				return fmt.Errorf("read request: %v; write failure reply: %w", err, replyErr)
+			}
+		}
+
 		return fmt.Errorf("read SOCKS5 request: %w", err)
 	}
 
