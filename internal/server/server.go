@@ -18,17 +18,20 @@ type Server struct {
 	addr string
 	handler Handler
 	logger *slog.Logger
+	slots chan struct{}
 }
 
 func New(
 	addr string,
 	handler Handler,
 	logger *slog.Logger,
+	maxConnections int,
 ) *Server {
 	return &Server{
 		addr: addr,
 		handler: handler,
 		logger: logger,
+		slots: make(chan struct{}, maxConnections),
 	}
 }
 
@@ -92,11 +95,24 @@ func (s *Server) Serve(ctx context.Context) error {
 			break
 		}
 
+		select {
+		case s.slots <- struct{}{}:
+			// there is available slot
+		default:
+			s.logger.Warn("connections limit reached")
+
+			conn.Close()
+			continue
+		}
+
 		delay = 0
 		wg.Add(1)
 
 		go func() {
 			defer wg.Done()
+			defer func() {
+				<-s.slots
+			}()
 
 			if err := s.handler.Handle(serverCtx, conn); err != nil {
 				s.logger.Error(

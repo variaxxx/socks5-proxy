@@ -52,6 +52,7 @@ func main()  {
 		net.JoinHostPort(cfg.Server.Host, fmt.Sprint(cfg.Server.Port)), 
 		handler, 
 		logger,
+		cfg.Server.MaxConnections,
 	)
 	
 	if err := srv.Serve(ctx); err != nil {

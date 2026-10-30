@@ -16,6 +16,7 @@ type Config struct {
 type ServerConfig struct {
 	Host string `yaml:"host"`
 	Port int `yaml:"port"`
+	MaxConnections int `yaml:"max_connections"`
 }
 
 type AuthConfig struct {
@@ -34,6 +35,7 @@ func Load(path string) (*Config, error) {
 		Server: ServerConfig{
 			Host: "127.0.0.1",
 			Port: 1080,
+			MaxConnections: 100,
 		},
 		Auth: AuthConfig{
 			RequireAuth: false,
