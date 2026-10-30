@@ -33,17 +33,10 @@ func NewHandler(
 func (h *Handler) Handle(ctx context.Context, conn net.Conn) error {
 	defer conn.Close()
 
-	done := make(chan struct{})
-	defer close(done)
-
-	go func() {
-		select {
-		case <-ctx.Done():
-			conn.Close()
-		case <-done:
-			return
-		}
-	}()
+	stopClient := context.AfterFunc(ctx, func() {
+		conn.Close()
+	})
+	defer stopClient()
 
 	remoteAddr := conn.RemoteAddr().String()
 
@@ -83,6 +76,11 @@ func (h *Handler) Handle(ctx context.Context, conn net.Conn) error {
 	}
 	defer upstream.Close()
 
+	stopUpstream := context.AfterFunc(ctx, func() {
+		upstream.Close()
+	})
+	defer stopUpstream()
+
 	boundAddr, ok := upstream.LocalAddr().(*net.TCPAddr)
 	if !ok {
 		if err := writeReply(conn, ReplyGeneralFailure, nil); err != nil {
@@ -93,6 +91,16 @@ func (h *Handler) Handle(ctx context.Context, conn net.Conn) error {
 
 	if err := writeReply(conn, ReplySuccess, boundAddr); err != nil {
 		return fmt.Errorf("write success reply: %w", err)
+	}
+
+	err = relay(conn, upstream); 
+	
+	if ctx.Err() != nil {
+		return nil
+	}
+
+	if err != nil {
+		return fmt.Errorf("relay error: %w", err)
 	}
 
 	return nil
