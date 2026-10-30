@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"time"
 )
 
 type Command byte
@@ -32,10 +33,15 @@ type Request struct {
 // RFC1928 request format:
 // 05  01  00  03   ...
 // VER CMD RSV ATYP DST (address + port)
-func readRequest(r io.Reader) (*Request, error) {
+func readRequest(conn net.Conn) (*Request, error) {
+	if err := conn.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
+		return nil, fmt.Errorf("set conn deadline: %w", err)
+	}
+	defer conn.SetDeadline(time.Time{})
+
 	header := make([]byte, 4)
 
-	if _, err := io.ReadFull(r, header); err != nil {
+	if _, err := io.ReadFull(conn, header); err != nil {
 		return nil, fmt.Errorf("read req header: %w", err) 
 	}
 
@@ -57,7 +63,7 @@ func readRequest(r io.Reader) (*Request, error) {
 	case AddrIPv4:
 		buf := make([]byte, net.IPv4len)
 
-		if _, err := io.ReadFull(r, buf); err != nil {
+		if _, err := io.ReadFull(conn, buf); err != nil {
 			return nil, fmt.Errorf("read ipv4 addr: %w", err) 
 		}
 
@@ -66,7 +72,7 @@ func readRequest(r io.Reader) (*Request, error) {
 	case AddrIPv6:
 		buf := make([]byte, net.IPv6len)
 
-		if _, err := io.ReadFull(r, buf); err != nil {
+		if _, err := io.ReadFull(conn, buf); err != nil {
 			return nil, fmt.Errorf("read ipv6 addr: %w", err) 
 		}
 
@@ -75,7 +81,7 @@ func readRequest(r io.Reader) (*Request, error) {
 	case AddrDomain:
 		var length [1]byte
 
-		if _, err := io.ReadFull(r, length[:]); err != nil {
+		if _, err := io.ReadFull(conn, length[:]); err != nil {
 			return nil, fmt.Errorf("read domain length: %w", err) 
 		}
 
@@ -85,7 +91,7 @@ func readRequest(r io.Reader) (*Request, error) {
 
 		buf := make([]byte, int(length[0]))
 
-		if _, err := io.ReadFull(r, buf); err != nil {
+		if _, err := io.ReadFull(conn, buf); err != nil {
 			return nil, fmt.Errorf("read domain addr: %w", err) 
 		}
 
@@ -97,7 +103,7 @@ func readRequest(r io.Reader) (*Request, error) {
 
 	var portBytes [2]byte
 
-	if _, err := io.ReadFull(r, portBytes[:]); err != nil {
+	if _, err := io.ReadFull(conn, portBytes[:]); err != nil {
 			return nil, fmt.Errorf("read destination port: %w", err)
 	}
 

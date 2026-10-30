@@ -1,7 +1,7 @@
 package socks5
 
 import (
-	"bytes"
+	"net"
 	"reflect"
 	"testing"
 )
@@ -67,9 +67,15 @@ func TestReadRequests(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			reader := bytes.NewReader(tt.input)
+			server, client := net.Pipe()
+			defer server.Close()
 
-			got, err := readRequest(reader)
+			go func() {
+				defer client.Close()
+				_, _ = client.Write(tt.input)
+			}()
+
+			got, err := readRequest(server)
 
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("unwanted error: %v", err)
